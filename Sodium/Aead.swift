@@ -10,6 +10,17 @@ extension Aead {
         public let ABytes = Int(crypto_aead_xchacha20poly1305_ietf_abytes())
         public typealias MAC = Bytes
     }
+    
+    public struct XChaCha20Poly1305Common {
+        public let ABytes = Int(crypto_aead_chacha20poly1305_abytes())
+        public typealias MAC = Bytes
+    }
+    
+    public struct CryptoAuthHmacSHA256 {
+        public let KeyBytes = Int(crypto_auth_hmacsha256_keybytes())
+        public typealias MAC = Bytes
+    }
+
 }
 
 extension Aead.XChaCha20Poly1305Ietf {
@@ -116,3 +127,31 @@ extension Aead.XChaCha20Poly1305Ietf: SecretKeyGenerator {
 
     public static var keygen: (UnsafeMutablePointer<UInt8>) -> Void = crypto_aead_xchacha20poly1305_ietf_keygen
 }
+
+extension Aead.XChaCha20Poly1305Common
+{
+    public func genchacha20poly1305Encryption(message: Bytes, secretKey: Bytes,nonce:Bytes,header:Bytes)->Bytes?{
+        var authenticatedCipherText = Bytes(count: message.count + ABytes)
+        guard .SUCCESS == crypto_aead_chacha20poly1305_encrypt(&authenticatedCipherText,nil,message, UInt64(message.count),header,UInt64(header.count),nil,nonce,secretKey).exitCode else { return nil }
+        
+        return (authenticatedCipherText)
+    }
+    
+    public func genchacha20poly1305Decryption(message: Bytes, secretKey: Bytes,nonce:Bytes,header:Bytes)->Bytes?{
+        var authenticatedCipherText = Bytes(count: message.count + ABytes)
+        guard .SUCCESS == crypto_aead_chacha20poly1305_decrypt(&authenticatedCipherText,nil,nil,message, UInt64(message.count),header,UInt64(header.count),nonce,secretKey).exitCode else { return nil }
+        
+        return (authenticatedCipherText)
+    }
+}
+
+extension Aead.CryptoAuthHmacSHA256
+{
+    public func genCryptoSHA256Hmac(message: Bytes, secretKey: Bytes) -> Bytes? {
+        guard secretKey.count == KeyBytes else { return nil }
+        var tag = Bytes(count: KeyBytes)
+        guard .SUCCESS == crypto_auth_hmacsha256(&tag, message, UInt64(message.count),secretKey).exitCode else { return nil }
+        return tag
+    }
+}
+
