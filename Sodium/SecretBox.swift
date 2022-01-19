@@ -172,3 +172,55 @@ extension SecretBox: SecretKeyGenerator {
 
     public static let keygen: (_ k: UnsafeMutablePointer<UInt8>) -> Void = crypto_secretbox_keygen
 }
+
+extension SecretBox {
+    
+
+    public func sealforContactBkp(message: Bytes, secretKey: Key) -> Bytes? {
+        guard let (authenticatedCipherText): (Bytes) = sealforBackup(
+            message: message,
+            secretKey: secretKey
+            ) else { return nil }
+        return authenticatedCipherText
+    }
+    
+    public func sealforBackup(message: Bytes, secretKey: Key) ->  Bytes? {
+        guard secretKey.count == KeyBytes else { return nil }
+        var authenticatedCipherText = Bytes(count: message.count + MacBytes)
+        let nonce = secretKey[..<NonceBytes].bytes as Nonce
+        //let nonce = Bytes(count: NonceBytes) as Nonce
+        guard .SUCCESS == crypto_secretbox_easy (
+            &authenticatedCipherText,
+            message, UInt64(message.count),
+            nonce,
+            secretKey
+            ).exitCode else { return nil }
+        
+        return (authenticatedCipherText)
+    }
+    public func openContactBkp(nonceAndAuthenticatedCipherText: Bytes, secretKey: Key) -> Bytes? {
+        //guard nonceAndAuthenticatedCipherText.count >= MacBytes + NonceBytes else { return nil }
+        
+        //let nonce = Bytes(count: NonceBytes) as Nonce
+        //Uncomment this
+        let nonce = secretKey[..<NonceBytes].bytes as Nonce
+        //let authenticatedCipherText = nonceAndAuthenticatedCipherText[NonceBytes...].bytes
+        return openContactBkp(authenticatedCipherText: nonceAndAuthenticatedCipherText, secretKey: secretKey, nonce: nonce)
+    }
+    
+    
+    public func openContactBkp(authenticatedCipherText: Bytes, secretKey: Key, nonce: Nonce) -> Bytes? {
+        
+        guard authenticatedCipherText.count >= MacBytes else { return nil }
+        var message = Bytes(count: authenticatedCipherText.count - MacBytes)
+        
+        guard .SUCCESS == crypto_secretbox_open_easy (
+            &message,
+            authenticatedCipherText, UInt64(authenticatedCipherText.count),
+            nonce,
+            secretKey
+            ).exitCode else { return nil }
+        
+        return message
+    }
+}
